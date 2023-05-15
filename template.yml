@@ -1,0 +1,158 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  ms-azlo
+
+Transform:
+- AWS::Serverless-2016-10-31
+
+
+
+Parameters:
+  AppName:
+    Type: String
+    Default: azlo-restapi
+    Description: Rest Services API
+  StageName:
+      Type: String
+      Default: dev
+      Description: (Required) Enter dev, test, stag, prod, qa. Default is dev.
+      AllowedValues:
+        - dev
+        - test
+        - stag
+        - prod
+        - qa
+
+Resources:
+  # API Gateway REST API
+  AzloApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: !Sub '${AppName}-${StageName}'
+      ApiKeySourceType: HEADER
+      Body:
+        Fn::Transform:
+          Name: AWS::Include
+          Parameters:
+            Location: ./swagger-definition.yml
+      BinaryMediaTypes:
+        - application/octet-stream
+        - image/jpeg
+        - image/png
+        - application/pdf
+        - application/zip
+      Mode: overwrite
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+          
+
+  AzloPathPersonResource:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      RestApiId: !Ref AzloApi
+      ParentId: !GetAtt AzloApi.RootResourceId
+      PathPart: 'persons'
+  
+  OptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      RestApiId: !Ref AzloApi
+      ResourceId: !GetAtt AzloApi.RootResourceId
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - StatusCode: "200"
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'*'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+        Type: MOCK
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  RestApiPathValidator:
+    Type: 'AWS::ApiGateway::RequestValidator'
+    Properties:
+      Name: RestApiPathValidator
+      RestApiId: !Ref AzloApi
+      ValidateRequestBody: true
+      ValidateRequestParameters: true
+
+  Deployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - OptionsMethod
+    Properties:
+      RestApiId: !Ref AzloApi
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      UsagePlanName: !Sub '${AppName}-usage-plan-${StageName}'
+      ApiStages:
+        - ApiId: !Ref AzloApi
+          Stage: !Ref Stage
+  
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub '${AppName}-apikey-${StageName}'
+      Enabled: True
+      StageKeys:
+        - RestApiId: !Ref AzloApi
+          StageName: !Ref Stage
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+  Stage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: !Sub '${StageName}'
+      RestApiId: !Ref AzloApi
+      DeploymentId: !Ref Deployment
+      
+
+
+Outputs:
+  AzloAPI:
+    Description: reference to Api
+    Value: !Ref AzloApi
+    Export:
+      Name: !Sub 'AzloApi-${StageName}'
+  RestApiPathValidatorID:
+    Description: reference to RestApiPathValidator
+    Value: !Ref RestApiPathValidator
+    Export:
+      Name: !Sub 'RestApiPathValidator-${StageName}'
+  AzloAPIID:
+    Description: reference to root id
+    Value: !GetAtt AzloApi.RootResourceId
+    Export:
+      Name: !Sub 'AzloApiResourceId-${StageName}'
+  AzloPathPersonResource:
+    Description: reference to AzloPathPersonResource
+    Value: !Ref AzloPathPersonResource
+    Export:
+      Name: !Sub 'AzloPathPersonResource-${StageName}'
+
+  
+   
+  

@@ -1,0 +1,13 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "azlop-restapi"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-q71ngv8lacfv"
+s3_prefix = "azlop-restapi"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+parameter_overrides = "AppName=\"AZLO\" StageName=\"dev\""
+image_repositories = []
